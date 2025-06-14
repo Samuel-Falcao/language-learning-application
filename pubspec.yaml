@@ -1,0 +1,41 @@
+name: falae_app
+description: Um aplicativo para aprendizado de idiomas.
+
+publish_to: 'none' 
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Pacotes do Firebase (versões compatíveis)
+  firebase_core: ^2.27.1
+  firebase_auth: ^4.17.9
+  cloud_firestore: ^4.15.9
+  firebase_messaging: ^14.7.20
+  
+  # Pacote para Notificações Locais
+  flutter_local_notifications: ^17.1.2
+
+  # Pacotes de UI e utilitários
+  video_player: ^2.8.6
+  intl: ^0.19.0
+  cupertino_icons: ^1.0.2
+  diacritic: ^0.1.5 # <-- VERSÃO CORRIGIDA
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/videos/
+    - assets/images/
