@@ -63,8 +63,8 @@ lib/
 * **Samuel Falcão** - **Arquiteto de Software & Desenvolvedor Principal**
     * Responsável pela concepção da arquitetura, desenvolvimento completo do aplicativo em Flutter, integração com Firebase e implementação de todas as funcionalidades.
 
-* **Ágata Giovanna** - **Design de UI/UX & Identidade Visual**
-    * Contribuiu com o design das interfaces, experiência do usuário e a criação da identidade visual do Falaê App.
+* **Ágata Giovanna** - **Design de UI/UX & Identidade Visual & Integração com Firebase**
+    * Contribuiu com o design das interfaces, experiência do usuário e a criação da identidade visual do Falaê App, além de auxiliar na integração do projeto ao Firebase.
 
 * **David Nogueira** - **Gerenciamento de Projeto & Documentação**
     * Ajudou na organização das tarefas, definição do escopo e na elaboração da documentação técnica e do usuário.
