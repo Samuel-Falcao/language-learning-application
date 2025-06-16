@@ -110,7 +110,6 @@ class ProgressScreen extends StatelessWidget {
     bool hasRecord = profile.lastPeriodXP > 0;
 
     return Card(
-      // ALTERAÇÃO: Margin zerada para remover espaço vertical extra do tema.
       margin: EdgeInsets.zero,
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.05),
@@ -140,7 +139,7 @@ class ProgressScreen extends StatelessWidget {
               challengeCompleted
                   ? "Parabéns! Você bateu o recorde e ganhou 50 gemas!"
                   : hasRecord
-                      ? "Bata seu recorde de ${profile.lastPeriodXP} XP e ganhe um bônus de 50 gemas!"
+                      ? "Bata seu maior recorde XP e ganhe um bônus de 50 gemas!"
                       : "Defina seu primeiro recorde! O XP que você fizer agora será a meta do próximo desafio.",
               style: Theme.of(context).textTheme.bodyMedium,
             ),
@@ -183,7 +182,6 @@ class ProgressScreen extends StatelessWidget {
     }
 
     return Card(
-      // ALTERAÇÃO: Margin zerada para remover espaço vertical extra do tema.
       margin: EdgeInsets.zero,
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.05),
@@ -245,7 +243,6 @@ class ProgressScreen extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: ListView(
-          // ALTERAÇÃO: Padding vertical reduzido para compactar a lista.
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           children: [
             ValueListenableBuilder<UserProfileModel>(
@@ -255,10 +252,8 @@ class ProgressScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildLevelCard(profile, context),
-                    // ALTERAÇÃO: Espaçamento entre os cards reduzido.
                     const SizedBox(height: 12),
                     _buildWeeklyChallengeCard(profile, context),
-                    // ALTERAÇÃO: Espaçamento antes do botão reduzido.
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.play_arrow),
@@ -277,7 +272,6 @@ class ProgressScreen extends StatelessWidget {
                 );
               },
             ),
-            // ALTERAÇÃO: Espaçamento antes da lista de atividades reduzido.
             const SizedBox(height: 20),
             Text("Atividades Recentes", style: theme.textTheme.titleLarge),
             const Divider(height: 20, thickness: 1),
@@ -296,39 +290,63 @@ class ProgressScreen extends StatelessWidget {
                     ),
                   );
                 }
+
                 final scoresList = scores.values.toList();
                 scoresList.sort((a, b) => b.date.compareTo(a.date));
+
+                final recentScores = scoresList.take(3).toList();
+
                 return Column(
-                  children: scoresList.map((scoreData) {
-                    final formattedDate = DateFormat('dd/MM/yy \'às\' HH:mm')
-                        .format(scoreData.date);
-                    return Card(
-                      // ALTERAÇÃO: Margin zerada para os cards da lista também.
-                      margin: const EdgeInsets.only(bottom: 8.0),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: scoreData.activityType == 'quiz'
-                              ? theme.primaryColor
-                              : Colors.green[600],
-                          child: Icon(
-                            scoreData.activityType == 'quiz'
-                                ? Icons.quiz_outlined
-                                : Icons.article_outlined,
-                            color: Colors.white,
-                            size: 20,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...recentScores.map((scoreData) {
+                      final formattedDate = DateFormat('dd/MM/yy \'às\' HH:mm')
+                          .format(scoreData.date);
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8.0),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: scoreData.activityType == 'quiz'
+                                ? theme.primaryColor
+                                : Colors.green[600],
+                            child: Icon(
+                              scoreData.activityType == 'quiz'
+                                  ? Icons.quiz_outlined
+                                  : Icons.article_outlined,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
-                        ),
-                        title: Text(
-                          '${scoreData.activityType == 'quiz' ? 'Quiz' : 'Frases'}: ${scoreData.lessonTitle}',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        subtitle: Text(
+                          title: Text(
+                            '${scoreData.activityType == 'quiz' ? 'Quiz' : 'Frases'}: ${scoreData.lessonTitle}',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          subtitle: Text(
                             'Pontuação: ${scoreData.score} de ${scoreData.totalQuestions}\nRealizado em: $formattedDate',
-                            style: theme.textTheme.bodyMedium),
-                        isThreeLine: true,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          isThreeLine: true,
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 10), // espaço maior antes do botão
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/all-lessons');
+                        },
+                        icon: const Icon(Icons.list_alt_outlined),
+                        label: const Text('Ver todas as atividades'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(180, 48),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          alignment: Alignment.center,
+                        ),
                       ),
-                    );
-                  }).toList(),
+                    ),
+                  ],
                 );
               },
             ),

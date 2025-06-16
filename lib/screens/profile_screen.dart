@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import '../models/user_profile_model.dart';
 import '../services/auth_service.dart';
 import '../services/progress_service.dart';
@@ -29,10 +30,8 @@ class ProfileScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text("Fechar"),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
           )
         ],
       ),
@@ -49,32 +48,23 @@ class ProfileScreen extends StatelessWidget {
         content: const Text("Tem certeza que deseja sair?"),
         actions: [
           TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text("Cancelar"),
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
           ),
           TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              authService.logout();
+              Navigator.of(context, rootNavigator: true)
+                  .pushNamedAndRemoveUntil(
+                AppRoutes.welcome,
+                (route) => false,
+              );
+            },
             child: Text(
               "Sair",
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
-            onPressed: () {
-              // Primeiro, fechamos o diálogo.
-              Navigator.of(dialogContext).pop();
-              // Depois, chamamos a função de logout.
-              authService.logout();
-
-              // vvvvvvvvvvvvvv ALTERAÇÃO PRINCIPAL vvvvvvvvvvvvvvvv
-              // Finalmente, navegamos para a tela de boas-vindas e removemos todas as
-              // telas anteriores do histórico, para que o usuário não possa "voltar".
-              Navigator.of(context, rootNavigator: true)
-                  .pushNamedAndRemoveUntil(
-                AppRoutes.welcome,
-                (Route<dynamic> route) => false,
-              );
-              // ^^^^^^^^^^^^^^^^ FIM DA ALTERAÇÃO ^^^^^^^^^^^^^^^^
-            },
           ),
         ],
       ),
@@ -128,11 +118,11 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text(
           'Meu Perfil',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style:
+              theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         centerTitle: false,
         elevation: 0,
@@ -147,145 +137,187 @@ class ProfileScreen extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: ValueListenableBuilder<User?>(
-              valueListenable: authService.currentUserNotifier,
-              builder: (context, user, _) {
-                return ValueListenableBuilder<UserProfileModel>(
-                  valueListenable: ProgressService.instance.userProfileNotifier,
-                  builder: (context, profile, child) {
-                    double progressToNextLevel = 0;
-                    final xpNeededForThisLevel =
-                        profile.nextLevelBaseXp - profile.currentLevelBaseXp;
-                    if (xpNeededForThisLevel > 0) {
-                      progressToNextLevel =
-                          profile.currentLevelXp / xpNeededForThisLevel;
-                    }
-                    final displayName =
-                        user?.displayName ?? user?.email ?? 'Convidado';
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ValueListenableBuilder<User?>(
+            valueListenable: authService.currentUserNotifier,
+            builder: (context, user, _) {
+              return ValueListenableBuilder<UserProfileModel>(
+                valueListenable: ProgressService.instance.userProfileNotifier,
+                builder: (context, profile, _) {
+                  final xpRange =
+                      profile.nextLevelBaseXp - profile.currentLevelBaseXp;
+                  final progress =
+                      xpRange > 0 ? profile.currentLevelXp / xpRange : 0.0;
+                  final displayName =
+                      user?.displayName ?? user?.email ?? 'Convidado';
 
-                    return Column(
-                      children: [
-                        const SizedBox(height: 16),
-                        Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            AvatarDisplay(
-                                avatarId: profile.avatarId, size: 120),
-                            Material(
-                              color: theme.primaryColor,
-                              shape: const CircleBorder(),
-                              elevation: 2,
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.of(context)
-                                      .pushNamed(AppRoutes.editProfile);
-                                },
-                                customBorder: const CircleBorder(),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: Icon(Icons.edit,
-                                      color: Colors.white, size: 20),
-                                ),
+                  return Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          AvatarDisplay(avatarId: profile.avatarId, size: 120),
+                          Material(
+                            color: theme.primaryColor,
+                            shape: const CircleBorder(),
+                            elevation: 2,
+                            child: InkWell(
+                              onTap: () => Navigator.of(context)
+                                  .pushNamed(AppRoutes.editProfile),
+                              customBorder: const CircleBorder(),
+                              child: const Padding(
+                                padding: EdgeInsets.all(8),
+                                child: Icon(Icons.edit,
+                                    color: Colors.white, size: 20),
                               ),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(displayName,
-                            style: theme.textTheme.headlineMedium,
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 32),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Column(
-                              children: [
-                                Text('Nível ${profile.level}',
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.bold)),
-                                Text(profile.levelName,
-                                    style: theme.textTheme.bodyMedium),
-                              ],
                             ),
-                            _buildStreakIcon(context, profile.streak),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                              'Progresso para o Nível ${profile.level + 1}',
-                              style: theme.textTheme.bodyLarge),
-                        ),
-                        const SizedBox(height: 8),
-                        LinearProgressIndicator(
-                          value: progressToNextLevel,
-                          minHeight: 18,
-                          borderRadius: BorderRadius.circular(10),
-                          backgroundColor: Colors.grey[300],
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              theme.colorScheme.secondary),
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                              '${profile.currentLevelXp} / $xpNeededForThisLevel XP',
-                              style: theme.textTheme.bodyMedium),
-                        ),
-                        const SizedBox(height: 40),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.storefront),
-                          label: const Text('Visitar a Loja'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            elevation: 4,
-                            shadowColor: Colors.black.withOpacity(0.2),
+                          )
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        displayName,
+                        style: theme.textTheme.headlineMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Column(
+                            children: [
+                              Text(
+                                'Nível ${profile.level}',
+                                style: theme.textTheme.titleLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              Text(profile.levelName,
+                                  style: theme.textTheme.bodyMedium),
+                            ],
                           ),
-                          onPressed: () {
-                            Navigator.of(context).pushNamed(AppRoutes.loja);
-                          },
+                          _buildStreakIcon(context, profile.streak),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Progresso para o Nível ${profile.level + 1}',
+                          style: theme.textTheme.bodyLarge,
                         ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.info_outline),
-                          label: const Text('Sobre o App'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: theme.textTheme.bodyLarge?.color,
-                            minimumSize: const Size(double.infinity, 50),
-                            side: BorderSide(color: Colors.grey.shade300),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                      ),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 18,
+                        borderRadius: BorderRadius.circular(10),
+                        backgroundColor: Colors.grey[300],
+                        valueColor:
+                            AlwaysStoppedAnimation(theme.colorScheme.secondary),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${profile.currentLevelXp} / $xpRange XP',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+
+                      // Botão: Visitar a Loja
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.storefront),
+                        label: const Text('Visitar a Loja'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          onPressed: () => _showAboutDialog(context),
+                          elevation: 4,
+                          shadowColor: Colors.black.withOpacity(0.2),
                         ),
-                        const SizedBox(height: 24),
-                        Center(
-                          child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pushNamed(AppRoutes.loja);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Botão: Minhas Conquistas (NOVO)
+                      // Botão: Minhas Conquistas (DESTACADO)
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.emoji_events_outlined,
+                            color: Colors.black),
+                        label: const Text(
+                          'Minhas Conquistas',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.black,
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                          shadowColor: Colors.black.withOpacity(0.1),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context)
+                              .pushNamed(AppRoutes.achievements);
+                        },
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Botão: Sobre o App
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.info_outline),
+                        label: const Text('Sobre o App'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: theme.textTheme.bodyLarge?.color,
+                          minimumSize: const Size(double.infinity, 50),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => _showAboutDialog(context),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Botão: Sair
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: SizedBox(
+                          width: 230,
+                          height: 44,
+                          child: OutlinedButton.icon(
                             icon: Icon(Icons.logout,
                                 color: theme.colorScheme.error),
                             label: Text(
                               'Sair',
                               style: TextStyle(color: theme.colorScheme.error),
                             ),
-                            onPressed: () {
-                              _showLogoutConfirmationDialog(
-                                  context, authService);
-                            },
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: theme.colorScheme.error),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () => _showLogoutConfirmationDialog(
+                                context, authService),
                           ),
                         ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ),
       ),

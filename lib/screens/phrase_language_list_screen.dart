@@ -13,12 +13,10 @@ class PhraseLanguageListScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      // A AppBar foi removida para dar lugar a um cabeçalho customizado.
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- CABEÇALHO PROFISSIONALIZADO ---
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
               child: Column(
@@ -40,7 +38,6 @@ class PhraseLanguageListScreen extends StatelessWidget {
                 ],
               ),
             ),
-            // --- LISTA DE IDIOMAS REDESENHADA ---
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -61,7 +58,7 @@ class PhraseLanguageListScreen extends StatelessWidget {
                           AppRoutes.lessonList,
                           arguments: {
                             'language': language,
-                            'activityType': 'frases'
+                            'activityType': 'frases',
                           },
                         );
                       },

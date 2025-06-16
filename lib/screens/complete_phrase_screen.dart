@@ -16,7 +16,6 @@ class CompletePhraseScreen extends StatefulWidget {
 }
 
 class CompletePhraseScreenState extends State<CompletePhraseScreen> {
-  // Variáveis de estado da atividade
   late LessonModel _lesson;
   late LanguageModel _language;
   late List<PhraseModel> _originalPhrases;
@@ -35,6 +34,9 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
   final TextEditingController _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
+  // Cor verde usada nos botões e appbar
+  static const Color primaryGreen = Color(0xFF4CAF50);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -43,7 +45,6 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
     }
   }
 
-  // Inicializa a atividade, carregando as frases e verificando o modo de revisão
   void _initializeActivity() {
     final arguments =
         ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
@@ -77,7 +78,6 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
 
   @override
   void dispose() {
-    // Guarda o progresso se o utilizador sair a meio
     if (!_isCompleted && _phrases.isNotEmpty && !_isReviewMode) {
       ProgressService.instance.savePhraseProgress(
         lessonId: _lesson.id,
@@ -90,7 +90,6 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
     super.dispose();
   }
 
-  // Carrega o progresso salvo, se existir
   Future<void> _loadInitialProgress() async {
     final savedProgress =
         await ProgressService.instance.loadPhraseProgress(_lesson.id);
@@ -131,13 +130,11 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
     }
   }
 
-  // Lógica para verificar a resposta do utilizador
   void _checkAnswer() {
     if (_answered) return;
     final userAnswer = _textController.text.trim();
     final correctAnswer = _phrases[_currentPhraseIndex].correctAnswer.trim();
 
-    // Compara as respostas ignorando maiúsculas/minúsculas e acentos
     final isCorrect = removeDiacritics(userAnswer.toLowerCase()) ==
         removeDiacritics(correctAnswer.toLowerCase());
 
@@ -155,7 +152,6 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
     _focusNode.unfocus();
   }
 
-  // Avança para a próxima frase ou mostra o resultado final
   void _handleNextStep() {
     if (_currentPhraseIndex < _phrases.length - 1) {
       setState(() {
@@ -170,7 +166,6 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
     }
   }
 
-  // Mostra o diálogo de conclusão da atividade
   void _showResultDialog() {
     _isCompleted = true;
 
@@ -182,11 +177,10 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
       ProgressService.instance.completeActivity(
         languageId: _language.id,
         lesson: _lesson,
-        activityType: 'frases', // Tipo de atividade específico
+        activityType: 'frases',
         score: _score,
         totalQuestions: _originalPhrases.length,
-        wrongQuestionIds:
-            incorrectIds, // Usamos o mesmo campo para guardar os IDs
+        wrongQuestionIds: incorrectIds,
       );
     }
 
@@ -215,12 +209,11 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                backgroundColor: Colors.teal,
               ),
               child: const Text('Ver Progresso'),
               onPressed: () {
                 Navigator.of(ctx).popUntil(ModalRoute.withName(AppRoutes.main));
-                // --- CORREÇÃO APLICADA ---
-                // O índice do ecrã de progresso é 0.
                 NavigationService.instance.changeTab(0);
               },
             ),
@@ -232,8 +225,7 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 side: BorderSide(
-                    color:
-                        Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+                    color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
               ),
               child: const Text('Sair'),
               onPressed: () {
@@ -251,14 +243,24 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
   Widget build(BuildContext context) {
     if (!_isInitialized || _isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text("A carregar...")),
+        appBar: AppBar(
+          title: const Text("A carregar..."),
+          backgroundColor: Colors.teal,
+          iconTheme: const IconThemeData(color: Colors.white),
+          titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_phrases.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(_lesson.title)),
+        appBar: AppBar(
+          title: Text(_lesson.title),
+          backgroundColor: Colors.teal,
+          iconTheme: const IconThemeData(color: Colors.white),
+          titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        ),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(16.0),
@@ -277,15 +279,18 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.teal,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         title: Text(
-            _isReviewMode ? "A rever... - ${_lesson.title}" : _lesson.title),
+          _isReviewMode ? "A rever... - ${_lesson.title}" : _lesson.title,
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Barra de progresso
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Column(
@@ -300,13 +305,13 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
                     value: progress,
                     minHeight: 12,
                     borderRadius: BorderRadius.circular(6),
+                    color: Colors.teal,
+                    backgroundColor: Colors.teal.withOpacity(0.3),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 40),
-
-            // Frase a ser traduzida
             Text(
               currentPhrase.phraseTemplate,
               textAlign: TextAlign.center,
@@ -315,8 +320,6 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
                   ),
             ),
             const SizedBox(height: 20),
-
-            // Campo de texto para a resposta
             TextField(
               controller: _textController,
               focusNode: _focusNode,
@@ -331,15 +334,12 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
               onSubmitted: (_) => _checkAnswer(),
             ),
             const SizedBox(height: 20),
-
-            // Botão de verificar ou continuar
             if (!_answered)
               NavButton(
                 title: 'Verificar Resposta',
                 onPressed: _checkAnswer,
+                color: Colors.teal,
               ),
-
-            // Feedback após a resposta
             if (_answered)
               Column(
                 children: [
@@ -368,7 +368,8 @@ class CompletePhraseScreenState extends State<CompletePhraseScreen> {
                         ? 'CONTINUAR'
                         : 'VER RESULTADO',
                     onPressed: _handleNextStep,
-                  )
+                    color: Colors.teal,
+                  ),
                 ],
               ),
           ],

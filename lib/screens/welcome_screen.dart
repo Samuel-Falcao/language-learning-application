@@ -1,54 +1,102 @@
-import 'package:flutter/foundation.dart'; // Importante para verificar a plataforma
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../utils/app_routes.dart';
 
 class WelcomeScreen extends StatefulWidget {
-  const WelcomeScreen({super.key});
+  const WelcomeScreen({Key? key}) : super(key: key);
 
   @override
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen> {
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with TickerProviderStateMixin {
   late VideoPlayerController _controller;
   bool _videoInitialized = false;
+
+  late AnimationController _logoAnimationController;
+  late Animation<double> _logoScaleAnimation;
+
+  late AnimationController _textAnimationController;
+  late Animation<double> _textFadeAnimation;
+
+  bool _showLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // Apenas inicializa o vídeo se NÃO estiver na web
-    if (!kIsWeb) {
-      initializeVideoPlayer();
-    }
-  }
 
-  void initializeVideoPlayer() {
-    _controller = VideoPlayerController.asset('assets/videos/background.mp4')
-      ..initialize().then((_) {
-        if (mounted) {
-          setState(() {
-            _videoInitialized = true;
-          });
-          _controller.play();
-          _controller.setLooping(true);
-        }
-      }).catchError((error) {
-        debugPrint("Erro ao inicializar o vídeo: $error, usando fundo branco.");
-        if (mounted) {
-          setState(() {
-            _videoInitialized = false;
-          });
-        }
-      });
+    // Inicializa o vídeo se não for web
+    if (!kIsWeb) {
+      _controller = VideoPlayerController.asset('assets/videos/background.mp4')
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() {
+              _videoInitialized = true;
+            });
+            _controller.play();
+            _controller.setLooping(true);
+          }
+        }).catchError((error) {
+          debugPrint("Erro ao inicializar vídeo: $error");
+          if (mounted) {
+            setState(() {
+              _videoInitialized = false;
+            });
+          }
+        });
+    }
+
+    // Animação do logo (zoom in)
+    _logoAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+
+    _logoScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+          parent: _logoAnimationController, curve: Curves.easeOutBack),
+    );
+
+    // Animação do texto (fade in)
+    _textAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+
+    _textFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _textAnimationController, curve: Curves.easeIn),
+    );
+
+    // Começa animação da logo
+    _logoAnimationController.forward();
+
+    // Quando animação da logo terminar, dispara animação do texto e mostra loading
+    _logoAnimationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _textAnimationController.forward();
+        setState(() {
+          _showLoading = true;
+        });
+
+        // Depois de 2 segundos com o texto e loading, navega pra Login
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    // Apenas faz dispose do controller se ele foi inicializado
     if (_videoInitialized && !kIsWeb) {
       _controller.dispose();
     }
+    _logoAnimationController.dispose();
+    _textAnimationController.dispose();
     super.dispose();
   }
 
@@ -58,87 +106,73 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Mostra o vídeo se estiver inicializado e não for web.
-          // Caso contrário, mostra um fundo de cor sólida.
+          // Fundo vídeo ou branco
           if (_videoInitialized && !kIsWeb)
-            SizedBox.expand(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _controller.value.size.width,
-                  height: _controller.value.size.height,
-                  child: VideoPlayer(_controller),
-                ),
+            FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _controller.value.size.width,
+                height: _controller.value.size.height,
+                child: VideoPlayer(_controller),
               ),
             )
           else
-            Container(
-              color: Colors.white, // Fundo branco para a web
-            ),
+            Container(color: Colors.white),
 
-          // Conteúdo sobreposto ao vídeo/fundo
+          // Conteúdo animado
           Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                const Spacer(flex: 2),
-                Text(
-                  'Falaê',
-                  style: TextStyle(
-                    fontSize: 64,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Logo com zoom
+                ScaleTransition(
+                  scale: _logoScaleAnimation,
+                  child:
+                      Image.asset('assets/images/logo_falae.png', width: 150),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Seu portal para novos idiomas.',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                const Spacer(flex: 3),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+
+                const SizedBox(height: 20),
+
+                // Texto com fade, só aparece depois da logo animar
+                FadeTransition(
+                  opacity: _textFadeAnimation,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      const Text(
+                        'Falaê',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal,
                         ),
-                        onPressed: () {
-                          Navigator.of(context).pushNamed(AppRoutes.login);
-                        },
-                        child: const Text('ENTRAR'),
                       ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: BorderSide(
-                              color: Theme.of(context).primaryColor),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Seu portal para novos idiomas.',
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: Colors.grey[700],
                         ),
-                        onPressed: () {
-                          Navigator.of(context)
-                              .pushNamed(AppRoutes.registration);
-                        },
-                        child: const Text('CRIAR CONTA'),
                       ),
                     ],
                   ),
                 ),
-                const Spacer(flex: 1),
               ],
             ),
           ),
+
+          // Loading na parte inferior centralizada
+          if (_showLoading)
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Colors.teal,
+                ),
+              ),
+            ),
         ],
       ),
     );

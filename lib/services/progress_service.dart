@@ -15,12 +15,12 @@ class ProgressService {
       ValueNotifier({});
   final ValueNotifier<UserProfileModel> userProfileNotifier =
       ValueNotifier(UserProfileModel());
-  
+
   final ValueNotifier<Map<String, dynamic>> quizProgressNotifier =
       ValueNotifier({});
   final ValueNotifier<Map<String, dynamic>> phraseProgressNotifier =
       ValueNotifier({});
-      
+
   final ValueNotifier<Set<String>> completedActivitiesNotifier =
       ValueNotifier({});
 
@@ -38,6 +38,17 @@ class ProgressService {
     4: "Viajante",
     5: "Mestre"
   };
+
+  // Mapeamento das recompensas de gemas para cada conquista
+  Map<String, int> get achievementGemsReward {
+    return {
+      'first_lesson': 10,
+      'perfect_score': 15,
+      'weekly_streak': 20,
+      'complete_10_lessons': 25,
+      // Adicione aqui outras conquistas conforme seu allAchievements
+    };
+  }
 
   void reset() {
     userProfileNotifier.value = UserProfileModel();
@@ -109,7 +120,7 @@ class ProgressService {
           data['quizProgress'] as Map<String, dynamic>? ?? {};
       phraseProgressNotifier.value =
           data['phraseProgress'] as Map<String, dynamic>? ?? {};
-          
+
       userProfileNotifier.value = _calculateProfile(data);
 
       final scoresSnapshot =
@@ -124,88 +135,84 @@ class ProgressService {
     }
   }
 
-  Future<void> completeActivity(
-      {required String languageId,
-      required LessonModel lesson,
-      required String activityType,
-      required int score,
-      required int totalQuestions,
-      List<String> wrongQuestionIds = const []}) async {
+  Future<void> completeActivity({
+    required String languageId,
+    required LessonModel lesson,
+    required String activityType,
+    required int score,
+    required int totalQuestions,
+    List<String> wrongQuestionIds = const [],
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
     try {
       final userDocRef = _firestore.collection('users').doc(user.uid);
       final xpDaAtividade = lesson.xpReward;
       final uniqueActivityId = '${languageId}_${lesson.id}_$activityType';
 
       final scoreData = ScoreModel(
-          lessonTitle: lesson.title,
-          activityType: activityType,
-          score: score,
-          totalQuestions: totalQuestions,
-          date: DateTime.now(),
-          wrongQuestionIds: wrongQuestionIds);
+        lessonTitle: lesson.title,
+        activityType: activityType,
+        score: score,
+        totalQuestions: totalQuestions,
+        date: DateTime.now(),
+        wrongQuestionIds: wrongQuestionIds,
+      );
 
+      // 1. Salvar score da atividade
       await userDocRef
           .collection('activityScores')
           .doc(uniqueActivityId)
           .set(scoreData.toJson());
 
-      final Map<String, dynamic> updates = {
+      // 2. Atualizar campos no Firestore
+      await userDocRef.update({
         'totalXp': FieldValue.increment(xpDaAtividade),
         'periodXP': FieldValue.increment(xpDaAtividade),
         'gems': FieldValue.increment(5),
-        'completedActivities': FieldValue.arrayUnion([uniqueActivityId])
-      };
-      await userDocRef.update(updates);
+        'completedActivities': FieldValue.arrayUnion([uniqueActivityId]),
+      });
 
+      // 3. Limpar progresso da lição
       if (activityType == 'quiz') {
         await clearQuizProgress(lesson.id);
       } else if (activityType == 'frases') {
         await clearPhraseProgress(lesson.id);
       }
 
-      // --- ALTERAÇÃO PRINCIPAL ---
-      // Esta forma de atualizar o notificador é mais robusta para garantir que
-      // o ValueListenableBuilder detete a mudança.
+      // 4. Atualizar notifier de pontuações
       scoresNotifier.value = {
         ...scoresNotifier.value,
         uniqueActivityId: scoreData,
       };
 
+      // 5. Atualizar conjunto de atividades concluídas
       final newCompleted = Set<String>.from(completedActivitiesNotifier.value);
       newCompleted.add(uniqueActivityId);
       completedActivitiesNotifier.value = newCompleted;
-      
-      final currentProfileData = userProfileNotifier.value;
-      userProfileNotifier.value = UserProfileModel(
-        totalXp: currentProfileData.totalXp + xpDaAtividade,
-        gems: currentProfileData.gems + 5,
-        level: currentProfileData.level, 
-        levelName: currentProfileData.levelName,
-        currentLevelXp: currentProfileData.currentLevelXp,
-        currentLevelBaseXp: currentProfileData.currentLevelBaseXp,
-        nextLevelBaseXp: currentProfileData.nextLevelBaseXp,
-        streak: currentProfileData.streak,
-        avatarId: currentProfileData.avatarId,
-        periodXP: currentProfileData.periodXP + xpDaAtividade,
-        lastPeriodXP: currentProfileData.lastPeriodXP,
-        periodChallengeCompleted: currentProfileData.periodChallengeCompleted,
-      );
 
+      // 6. Recarregar o documento do usuário atualizado
+      final updatedUserDoc = await userDocRef.get();
+      final updatedData = updatedUserDoc.data();
 
+      if (updatedData != null) {
+        // Atualiza o perfil com base nos dados recalculados
+        userProfileNotifier.value = _calculateProfile(updatedData);
+      }
     } catch (e) {
       debugPrint("Erro ao completar atividade: $e");
     }
   }
 
-  // Métodos de Quiz
-  Future<void> saveQuizProgress(
-      {required String lessonId,
-      required int questionIndex,
-      required int score}) async {
+  Future<void> saveQuizProgress({
+    required String lessonId,
+    required int questionIndex,
+    required int score,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null || (questionIndex == 0 && score == 0)) return;
+    if (user == null) return;
+
     try {
       await _firestore.collection('users').doc(user.uid).update({
         'quizProgress.$lessonId': {'index': questionIndex, 'score': score}
@@ -236,7 +243,7 @@ class ProgressService {
     }
     return null;
   }
-  
+
   Future<void> clearQuizProgress(String lessonId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -251,10 +258,11 @@ class ProgressService {
   }
 
   // Métodos de Frases
-  Future<void> savePhraseProgress(
-      {required String lessonId,
-      required int phraseIndex,
-      required int score}) async {
+  Future<void> savePhraseProgress({
+    required String lessonId,
+    required int phraseIndex,
+    required int score,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || (phraseIndex == 0 && score == 0)) return;
     try {
@@ -287,7 +295,7 @@ class ProgressService {
     }
     return null;
   }
-  
+
   Future<void> clearPhraseProgress(String lessonId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -300,7 +308,7 @@ class ProgressService {
       debugPrint("Erro ao limpar progresso das frases: $e");
     }
   }
-  
+
   // Métodos de cálculo de perfil
   int _calculateLevelFromXp(int totalXp) {
     int level = 1;
@@ -311,10 +319,12 @@ class ProgressService {
     }
     return level;
   }
-  
+
   UserProfileModel _calculateProfile(Map<String, dynamic> data) {
     final totalXp = data['totalXp'] ?? 0;
     final level = _calculateLevelFromXp(totalXp);
+    final achievements = List<String>.from(data['achievements'] ?? []);
+
     return UserProfileModel(
         totalXp: totalXp,
         level: level,
@@ -328,6 +338,7 @@ class ProgressService {
         gems: data['gems'] ?? 0,
         periodXP: data['periodXP'] ?? 0,
         lastPeriodXP: data['lastPeriodXP'] ?? 0,
-        periodChallengeCompleted: data['periodChallengeCompleted'] ?? false);
+        periodChallengeCompleted: data['periodChallengeCompleted'] ?? false,
+        achievements: achievements);
   }
 }

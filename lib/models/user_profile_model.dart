@@ -11,6 +11,7 @@ class UserProfileModel {
   final int periodXP;
   final int lastPeriodXP;
   final bool periodChallengeCompleted;
+  final List<String> achievements;
 
   UserProfileModel({
     this.totalXp = 0,
@@ -25,5 +26,6 @@ class UserProfileModel {
     this.periodXP = 0,
     this.lastPeriodXP = 0,
     this.periodChallengeCompleted = false,
+    this.achievements = const [],
   });
 }

@@ -17,31 +17,32 @@ class QuizScreen extends StatefulWidget {
 class QuizScreenState extends State<QuizScreen> {
   late LessonModel _lesson;
   late LanguageModel _language;
-
   late List<QuizQuestionModel> _originalQuestions;
   late List<QuizQuestionModel> _questions;
   final List<QuizQuestionModel> _incorrectlyAnsweredQuestions = [];
+
   bool _isReviewMode = false;
+  bool _isInitialized = false;
+  bool _isLoading = true;
+  bool _isCompleted = false;
+  bool _answered = false;
 
   int _currentQuestionIndex = 0;
   int _score = 0;
-  bool _answered = false;
   int? _selectedAnswerIndex;
-  bool _isLoading = true;
-  bool _isInitialized = false;
-  bool _isCompleted = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_isInitialized) {
-      _initializeQuiz();
-    }
+    if (!_isInitialized) _initializeQuiz();
   }
 
   void _initializeQuiz() {
-    final arguments =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final modalRoute = ModalRoute.of(context);
+    if (modalRoute == null || modalRoute.settings.arguments == null) return;
+
+    final arguments = modalRoute.settings.arguments as Map<String, dynamic>;
+
     _lesson = arguments['lesson'] as LessonModel;
     _language = arguments['language'] as LanguageModel;
     final List<String>? wrongQuestionIds =
@@ -54,32 +55,14 @@ class QuizScreenState extends State<QuizScreen> {
       _questions = _originalQuestions
           .where((q) => wrongQuestionIds.contains(q.id))
           .toList();
+      _isLoading = false;
     } else {
       _isReviewMode = false;
       _questions = List.from(_originalQuestions);
-    }
-
-    setState(() {
-      _isInitialized = true;
-    });
-
-    if (!_isReviewMode) {
       _loadInitialProgress();
-    } else {
-      setState(() => _isLoading = false);
     }
-  }
 
-  @override
-  void dispose() {
-    if (!_isCompleted && _questions.isNotEmpty && !_isReviewMode) {
-      ProgressService.instance.saveQuizProgress(
-        lessonId: _lesson.id,
-        questionIndex: _currentQuestionIndex,
-        score: _score,
-      );
-    }
-    super.dispose();
+    _isInitialized = true;
   }
 
   Future<void> _loadInitialProgress() async {
@@ -117,21 +100,22 @@ class QuizScreenState extends State<QuizScreen> {
         await ProgressService.instance.clearQuizProgress(_lesson.id);
       }
     }
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
   }
 
-  void _handleNextStep() {
-    if (_currentQuestionIndex < _questions.length - 1) {
-      setState(() {
-        _currentQuestionIndex++;
-        _answered = false;
-        _selectedAnswerIndex = null;
-      });
-    } else {
-      _showResultDialog();
+  @override
+  void dispose() {
+    if (!_isCompleted && _questions.isNotEmpty && !_isReviewMode) {
+      ProgressService.instance.saveQuizProgress(
+        lessonId: _lesson.id,
+        questionIndex: _currentQuestionIndex,
+        score: _score,
+      );
     }
+    super.dispose();
   }
 
   void _checkAnswer(int selectedIndex) {
@@ -153,16 +137,26 @@ class QuizScreenState extends State<QuizScreen> {
     });
   }
 
-  void _showResultDialog() {
+  void _handleNextStep() {
+    if (_currentQuestionIndex < _questions.length - 1) {
+      setState(() {
+        _currentQuestionIndex++;
+        _answered = false;
+        _selectedAnswerIndex = null;
+      });
+    } else {
+      _showResultDialog();
+    }
+  }
+
+  Future<void> _showResultDialog() async {
     _isCompleted = true;
 
     if (!_isReviewMode) {
-      ProgressService.instance.clearQuizProgress(_lesson.id);
-
       final List<String> incorrectIds =
           _incorrectlyAnsweredQuestions.map((q) => q.id).toList();
 
-      ProgressService.instance.completeActivity(
+      await ProgressService.instance.completeActivity(
         languageId: _language.id,
         lesson: _lesson,
         activityType: 'quiz',
@@ -172,107 +166,131 @@ class QuizScreenState extends State<QuizScreen> {
       );
     }
 
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            _isReviewMode
-                ? 'Revisão Finalizada!'
-                : 'Lição "${_lesson.title}" Finalizada!',
-            textAlign: TextAlign.center,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Sua pontuação: $_score de ${_questions.length}',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          _isReviewMode
+              ? 'Revisão Finalizada!'
+              : 'Lição "${_lesson.title}" Finalizada!',
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Sua pontuação: $_score de ${_questions.length}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text('Ver Progresso'),
-                onPressed: () {
-                  Navigator.of(ctx)
-                      .popUntil(ModalRoute.withName(AppRoutes.main));
-                  // --- CORREÇÃO APLICADA ---
-                  // O índice do ecrã de progresso é 0.
-                  NavigationService.instance.changeTab(0);
-                },
               ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    side: BorderSide(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withOpacity(0.5))),
-                child: const Text('Sair'),
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).pop();
-                },
+              child: const Text('Ver Progresso'),
+              onPressed: () {
+                Navigator.of(ctx).popUntil(ModalRoute.withName(AppRoutes.main));
+                NavigationService.instance.changeTab(0);
+              },
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                side: BorderSide(
+                    color:
+                        Theme.of(context).colorScheme.outline.withOpacity(0.5)),
               ),
-            ],
-          ),
-        );
-      },
+              child: const Text('Sair'),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Color _getButtonColor(int optionIndex) {
-    if (!_answered) return Theme.of(context).cardColor;
-    if (optionIndex == _questions[_currentQuestionIndex].correctAnswerIndex) {
-      return Colors.green.withOpacity(0.7);
+    final primaryGreen = Theme.of(context).colorScheme.primary;
+
+    if (!_answered) {
+      return primaryGreen.withOpacity(0.85);
     }
-    if (optionIndex == _selectedAnswerIndex) return Colors.red.withOpacity(0.7);
-    return Theme.of(context).cardColor;
+    if (optionIndex == _questions[_currentQuestionIndex].correctAnswerIndex) {
+      return primaryGreen;
+    }
+    if (optionIndex == _selectedAnswerIndex) {
+      return Colors.red;
+    }
+    return primaryGreen.withOpacity(0.85);
   }
 
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized || _isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text("A carregar...")),
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            "A carregar...",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_questions.isEmpty) {
       return Scaffold(
-          appBar: AppBar(title: Text(_lesson.title)),
-          body: const Center(
-              child: Padding(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: Text(
+            _lesson.title,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+        body: const Center(
+          child: Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
               'Esta lição não possui um quiz ou nenhuma pergunta para rever.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18),
             ),
-          )));
+          ),
+        ),
+      );
     }
+
     final double progress = (_currentQuestionIndex + 1) / _questions.length;
     final currentQuestion = _questions[_currentQuestionIndex];
+
     return Scaffold(
       appBar: AppBar(
-          title: Text(
-              _isReviewMode ? "A rever... - ${_lesson.title}" : _lesson.title)),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          _isReviewMode ? "A rever... - ${_lesson.title}" : _lesson.title,
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -283,23 +301,30 @@ class QuizScreenState extends State<QuizScreen> {
               child: Column(
                 children: [
                   Text(
-                      'Pergunta ${_currentQuestionIndex + 1} de ${_questions.length}',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium),
+                    'Pergunta ${_currentQuestionIndex + 1} de ${_questions.length}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 12,
-                      borderRadius: BorderRadius.circular(6)),
+                    value: progress,
+                    minHeight: 12,
+                    color: Theme.of(context).colorScheme.primary,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16.0),
-              child: Text(currentQuestion.questionText,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineSmall),
+              child: Text(
+                currentQuestion.questionText,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
             ),
             const SizedBox(height: 30),
             ...currentQuestion.options.asMap().entries.map((entry) {
@@ -308,9 +333,14 @@ class QuizScreenState extends State<QuizScreen> {
                 child: ElevatedButton(
                   onPressed: _answered ? null : () => _checkAnswer(entry.key),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: _getButtonColor(entry.key),
-                      foregroundColor: Colors.black,
-                      elevation: 1),
+                    backgroundColor: _getButtonColor(entry.key),
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                   child: Text(entry.value),
                 ),
               );
@@ -327,13 +357,14 @@ class QuizScreenState extends State<QuizScreen> {
                         : 'Incorreto. A resposta era: ${_questions[_currentQuestionIndex].options[_questions[_currentQuestionIndex].correctAnswerIndex]}',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: _selectedAnswerIndex ==
-                                _questions[_currentQuestionIndex]
-                                    .correctAnswerIndex
-                            ? Colors.green
-                            : Colors.red),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: _selectedAnswerIndex ==
+                              _questions[_currentQuestionIndex]
+                                  .correctAnswerIndex
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.red,
+                    ),
                   ),
                   const SizedBox(height: 15),
                   NavButton(
@@ -341,7 +372,7 @@ class QuizScreenState extends State<QuizScreen> {
                         ? 'CONTINUAR'
                         : 'VER RESULTADO',
                     onPressed: _handleNextStep,
-                  )
+                  ),
                 ],
               ),
           ],

@@ -11,7 +11,6 @@ class LessonListScreen extends StatelessWidget {
 
   void _showLessonOptions(BuildContext context, LanguageModel language,
       LessonModel lesson, String activityType, ScoreModel scoreData) {
-        
     final bool canReview = scoreData.wrongQuestionIds.isNotEmpty;
 
     showDialog(
@@ -28,7 +27,6 @@ class LessonListScreen extends StatelessWidget {
             const Text("O que você gostaria de fazer?",
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
-            
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -40,7 +38,6 @@ class LessonListScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-
             if (canReview)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
@@ -63,7 +60,6 @@ class LessonListScreen extends StatelessWidget {
                   },
                 ),
               ),
-            
             OutlinedButton(
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -80,10 +76,9 @@ class LessonListScreen extends StatelessWidget {
   void _navigateToActivity(BuildContext context, LanguageModel language,
       LessonModel lesson, String activityType,
       {List<String>? wrongQuestionIds}) {
-        
     final route =
         activityType == 'quiz' ? AppRoutes.quiz : AppRoutes.completePhrase;
-        
+
     Navigator.of(context).pushNamed(
       route,
       arguments: {
@@ -129,7 +124,8 @@ class LessonListScreen extends StatelessWidget {
               if (index > 0) {
                 final previousLesson = lessons[index - 1];
                 // Verifica a conclusão apenas para o MESMO tipo de atividade da lição anterior.
-                final prevActivityId = '${language.id}_${previousLesson.id}_$activityType';
+                final prevActivityId =
+                    '${language.id}_${previousLesson.id}_$activityType';
                 isLocked = !scores.containsKey(prevActivityId);
               }
 
@@ -148,12 +144,12 @@ class LessonListScreen extends StatelessWidget {
                           isLocked ? Colors.grey.shade600 : Colors.white,
                       child: isCompleted
                           ? const Icon(Icons.check, color: Colors.white)
-                          : (isLocked 
+                          : (isLocked
                               ? const Icon(Icons.lock_outline, size: 20)
                               : Text(
                                   '${index + 1}',
-                                  style:
-                                      const TextStyle(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
                                 )),
                     ),
                     title: Text(lesson.title),
